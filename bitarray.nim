@@ -1,6 +1,6 @@
 import private/memfiles
 from os import nil
-from strutils import `%`, formatFloat, ffDecimal
+from strutils import `%`, formatFloat, ffDecimal, toBin
 import unsigned
 from math import random, randomize
 from times import nil
@@ -92,6 +92,33 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
     result = bool((ba.bitarray_mmap[i_element] shr i_offset) and ONE)
 
 
+proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
+  ## Get the bits for a slice of the bitarray. Supports slice sizes
+  ## up the maximum element size (64 bits by default)
+  if index.b >= ba.size_bits:
+    raise newException(EBitarray, "Specified index is too large.")
+  if (index.b - index.a) > (sizeof(TBitScalar) * 8):
+    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+
+  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
+  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
+  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
+  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+  echo i_element_a, " ", i_offset_a, " ", i_element_b, " ", i_offset_b
+  if ba.in_memory:
+    var result = ba.bitarray[i_element_a] shr i_offset_a
+    echo "Slice a is ", result
+    echo "Binary representation: ", toBin(result, 8 * sizeof(TBitScalar))
+    if i_element_a != i_element_b:  # Combine two slices
+      let slice_b = ba.bitarray[i_element_b] shl i_offset_b
+      echo "Slice b is ", slice_b
+      echo "Binary representation: ", toBin(slice_b, 8 * sizeof(TBitScalar))
+      result = result or slice_b
+    echo "Final result:          ", toBin(result, 8 * sizeof(TBitScalar))
+
+
+
+
 proc `$`(ba: TBitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
   result = ("Bitarray with $1 bits and $2 unique elements. In-memory?: $3." %
@@ -154,3 +181,7 @@ when isMainModule:
     bit_value = bitarray_b[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
+
+  bitarray[65] = true
+  echo bitarray[2..66]
+  echo bitarray.bitarray[0..10]
