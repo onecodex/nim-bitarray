@@ -15,19 +15,29 @@ type
   TBitarrayKind = enum inmem, mmap
   PBitarray = ref TBitarray
   TFlexArray {.unchecked.} = array[0..0, TBitScalar]
-  TBitarray = object
+  TBitarray = ref object
     size_elements: int
     size_bits: int
     size_specified: int
-    case in_memory: bool
-    of true:
-      bitarray: seq[TBitScalar]
-    of false:
-      bitarray_mmap: ptr TFlexArray
+    bitarray: ptr TFlexArray
+    case kind: TBitarrayKind
+    of inmem:
+      nil
+    of mmap:
       mm_filehandle: TMemFile
 
 
-let ONE = TBitScalar(1)
+const ONE = TBitScalar(1)
+
+
+proc finalize_bitarray(a: TBitarray) =
+  if not a.bitarray.isNil:
+    case a.kind
+    of inmem:
+      dealloc(a.bitarray)
+      a.bitarray = nil
+    of mmap:
+      a.mm_filehandle.close()
 
 
 proc create_bitarray*(size: int): TBitarray =
@@ -35,9 +45,12 @@ proc create_bitarray*(size: int): TBitarray =
   ## Note that this will round up to the nearest byte.
   let n_elements = size div (sizeof(TBitScalar) * 8)
   let n_bits = n_elements * (sizeof(TBitScalar) * 8)
-  result = TBitarray(in_memory: true, bitarray: newSeq[TBitScalar](n_elements),
-                     size_elements: n_elements, size_bits: n_bits,
-                     size_specified: size)
+  new(result, finalize_bitarray)
+  result.kind = inmem
+  result.bitarray = cast[ptr TFlexArray](alloc0(n_elements * sizeof(TBitScalar)))
+  result.size_elements = n_elements
+  result.size_bits = n_bits
+  result.size_specified = size
 
 
 proc create_bitarray*(file: string, size: int = -1): TBitarray =
@@ -57,17 +70,13 @@ proc create_bitarray*(file: string, size: int = -1): TBitarray =
       raise newException(EBitarray, "No existing mmap file. Must specify size to create one.")
     mm_file = open(file, mode = fmReadWrite, newFileSize = n_elements)
 
-  result = TBitarray(in_memory: false,
-                     bitarray_mmap: cast[ptr TFlexArray](mm_file.mem),
-                     size_elements: n_elements, size_bits: n_bits,
-                     size_specified: size, mm_filehandle: mm_file)
-
-
-proc close*(ba: var TBitarray) =
-  ## Close a bitarray. Needed only for mmap-backed arrays,
-  ## but will just pass if using an in-memory array.
-  if not ba.in_memory:
-    ba.mm_filehandle.close()
+  new(result, finalize_bitarray)
+  result.kind = mmap
+  result.bitarray = cast[ptr TFlexArray](mm_file.mem)
+  result.size_elements = n_elements
+  result.size_bits = n_bits
+  result.size_specified = size
+  result.mm_filehandle = mm_file
 
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
@@ -76,16 +85,10 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
-  if ba.in_memory:
-    if val:
-      ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
-    else:
-      ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
+  if val:
+    ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
-    if val:
-      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] or (ONE shl i_offset))
-    else:
-      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] and ((not ONE) shl i_offset))
+    ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
 
 
 proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
@@ -94,10 +97,7 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
-  if ba.in_memory:
-    result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
-  else:
-    result = bool((ba.bitarray_mmap[i_element] shr i_offset) and ONE)
+  result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
 
 proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
@@ -112,18 +112,11 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
   let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
   let i_element_b = index.b div (sizeof(TBitScalar) * 8)
   let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
-  if ba.in_memory:
-    var result = ba.bitarray[i_element_a] shr i_offset_a
-    if i_element_a != i_element_b:  # Combine two slices
-      let slice_b = ba.bitarray[i_element_b] shl i_offset_b
-      result = result or slice_b
-    return result  # Fails if this isn't included?
-  else:
-    var result = ba.bitarray_mmap[i_element_a] shr i_offset_a
-    if i_element_a != i_element_b:  # Combine two slices
-      let slice_b = ba.bitarray_mmap[i_element_b] shl i_offset_b
-      result = result or slice_b
-    return result  # Fails is this isn't included?
+  var result = ba.bitarray[i_element_a] shr i_offset_a
+  if i_element_a != i_element_b:  # Combine two slices
+    let slice_b = ba.bitarray[i_element_b] shl i_offset_b
+    result = result or slice_b
+  return result  # Fails if this isn't included?
 
 
 proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
@@ -142,18 +135,17 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
   let i_element_b = index.b div (sizeof(TBitScalar) * 8)
   let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
 
-  if ba.in_memory:
-    let insert_a = val shl i_offset_a
-    ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
-    if i_element_a != i_element_b:
-      let insert_b = val shr i_offset_b
-      ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
+  let insert_a = val shl i_offset_a
+  ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
+  if i_element_a != i_element_b:
+    let insert_b = val shr i_offset_b
+    ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
 
 
 proc `$`(ba: TBitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
   result = ("Bitarray with $1 bits and $2 unique elements. In-memory?: $3." %
-            [$ba.size_bits, $ba.size_elements, $ba.in_memory])
+            [$ba.size_bits, $ba.size_elements, $ba.kind])
 
 
 when isMainModule:
@@ -172,12 +164,12 @@ when isMainModule:
   echo bitarray.bitarray[0..10]
 
   var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
-  echo bitarray_b.bitarray_mmap[0]
-  echo bitarray_b.bitarray_mmap[1]
-  echo bitarray_b.bitarray_mmap[2]
-  echo bitarray_b.bitarray_mmap[3]
-  bitarray_b.bitarray_mmap[3] = 4
-  echo bitarray_b.bitarray_mmap[3]
+  echo bitarray_b.bitarray[0]
+  echo bitarray_b.bitarray[1]
+  echo bitarray_b.bitarray[2]
+  echo bitarray_b.bitarray[3]
+  bitarray_b.bitarray[3] = 4
+  echo bitarray_b.bitarray[3]
 
   # Test range lookups/inserts
   bitarray[65] = true
@@ -227,3 +219,4 @@ when isMainModule:
     bit_value = bitarray_b[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
+
