@@ -16,8 +16,8 @@ type
   TFlexArray {.unchecked.} = array[0..0, TBitScalar]
   TBitarray* = ref object
     size_elements: int
-    size_bits: int
-    size_specified: int
+    size_bits*: int
+    size_specified*: int
     bitarray: ptr TFlexArray
     case kind: TBitarrayKind
     of inmem:
