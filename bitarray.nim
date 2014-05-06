@@ -8,7 +8,7 @@ from times import nil
 
 # Type declarations
 type
-  TBitScalar = int
+  TBitScalar* = int
 
 type
   EBitarray = object of EBase
