@@ -1,9 +1,10 @@
-#from memfiles import nil  # Not in love with this as it doesn't jive with method syntax, i.e., need to call memfiles.close(mm) vs. mm.close()
 import private/memfiles
 from os import nil
-from strutils import `%`
+from strutils import `%`, formatFloat, ffDecimal
 import unsigned
-import baseutils  # Pointer arithmetic
+from math import random, randomize
+from times import nil
+
 
 # Type declarations
 type
@@ -24,6 +25,8 @@ type
     of false:
       bitarray_mmap: ptr TFlexArray
 
+
+let ONE = TBitScalar(1)
 
 
 proc create_bitarray(size: int): TBitarray =
@@ -65,14 +68,14 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
   let i_offset = index mod (sizeof(TBitScalar) * 8)
   if ba.in_memory:
     if val:
-      ba.bitarray[i_element] = (ba.bitarray[i_element] or (0b1 shl i_offset))
+      ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
     else:
-      ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not 0b1) shl i_offset))
+      ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
   else:
     if val:
-      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] or (0b1 shl i_offset))
+      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] or (ONE shl i_offset))
     else:
-      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] and ((not 0b1) shl i_offset))
+      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] and ((not ONE) shl i_offset))
 
 
 proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
@@ -80,9 +83,10 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
   if ba.in_memory:
-    result = bool((ba.bitarray[i_element] shr i_offset) and 1)
+    result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
   else:
-    result = bool((ba.bitarray_mmap[i_element] shr i_offset) and 1)
+    result = bool((ba.bitarray_mmap[i_element] shr i_offset) and ONE)
+
 
 proc `$`(ba: TBitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
@@ -92,7 +96,10 @@ proc `$`(ba: TBitarray): string =
 
 when isMainModule:
   echo("Testing bitarray.nim code.")
-  var bitarray = create_bitarray(int(1e8))
+  let n_tests: int = int(1e6)
+  let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
+
+  var bitarray = create_bitarray(n_bits)
   echo "Created a bitarray."
   echo bitarray
   bitarray[0] = true
@@ -102,10 +109,44 @@ when isMainModule:
   bitarray[2] = true
   echo bitarray.bitarray[0..10]
 
-  var bitarray_b = create_bitarray("/tmp/ba.mmap", size=1024 * 8)
+  var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
   echo bitarray_b.bitarray_mmap[0]
   echo bitarray_b.bitarray_mmap[1]
   echo bitarray_b.bitarray_mmap[2]
   echo bitarray_b.bitarray_mmap[3]
   bitarray_b.bitarray_mmap[3] = 4
   echo bitarray_b.bitarray_mmap[3]
+
+  # Seed RNG
+  randomize(2882)  # Seed the RNG
+  var n_test_positions = newSeq[int](n_tests)
+
+  for i in 0..(n_tests - 1):
+    n_test_positions[i] = random(n_bits)
+
+  # Timing tests
+  var start_time, end_time: float
+  start_time = times.cpuTime()
+  for i in 0..(n_tests - 1):
+    bitarray[n_test_positions[i]] = true
+  end_time = times.cpuTime()
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (in-memory).")
+
+  start_time = times.cpuTime()
+  for i in 0..(n_tests - 1):
+    bitarray_b[n_test_positions[i]] = true
+  end_time = times.cpuTime()
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (mmap-backed).")
+
+  var bit_value: bool
+  start_time = times.cpuTime()
+  for i in 0..(n_tests - 1):
+    bit_value = bitarray[n_test_positions[i]]
+  end_time = times.cpuTime()
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (in-memory).")
+
+  start_time = times.cpuTime()
+  for i in 0..(n_tests - 1):
+    bit_value = bitarray_b[n_test_positions[i]]
+  end_time = times.cpuTime()
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (mmap-backed).")
