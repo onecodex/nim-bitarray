@@ -24,12 +24,13 @@ type
       bitarray: seq[TBitScalar]
     of false:
       bitarray_mmap: ptr TFlexArray
+      mm_filehandle: TMemFile
 
 
 let ONE = TBitScalar(1)
 
 
-proc create_bitarray(size: int): TBitarray =
+proc create_bitarray*(size: int): TBitarray =
   ## Creates an in-memory bitarray using a specified input size.
   ## Note that this will round up to the nearest byte.
   let n_elements = size div (sizeof(TBitScalar) * 8)
@@ -39,7 +40,7 @@ proc create_bitarray(size: int): TBitarray =
                      size_specified: size)
 
 
-proc create_bitarray(file: string, size: int = -1): TBitarray =
+proc create_bitarray*(file: string, size: int = -1): TBitarray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -59,7 +60,14 @@ proc create_bitarray(file: string, size: int = -1): TBitarray =
   result = TBitarray(in_memory: false,
                      bitarray_mmap: cast[ptr TFlexArray](mm_file.mem),
                      size_elements: n_elements, size_bits: n_bits,
-                     size_specified: size)
+                     size_specified: size, mm_filehandle: mm_file)
+
+
+proc close*(ba: var TBitarray) =
+  ## Close a bitarray. Needed only for mmap-backed arrays,
+  ## but will just pass if using an in-memory array.
+  if not ba.in_memory:
+    ba.mm_filehandle.close()
 
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
