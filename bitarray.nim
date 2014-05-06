@@ -80,7 +80,7 @@ proc create_bitarray*(file: string, size: int = -1): TBitarray =
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
   ## Sets the bit at an index to be either 0 (false) or 1 (true)
-  if index >= ba.size_bits:
+  if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
@@ -92,7 +92,7 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
 
 proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   ## Gets the bit at an index element (returns a bool)
-  if index >= ba.size_bits:
+  if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
@@ -102,7 +102,7 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
 proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
   ## Get the bits for a slice of the bitarray. Supports slice sizes
   ## up the maximum element size (64 bits by default)
-  if index.b >= ba.size_bits:
+  if index.b >= ba.size_bits or index.a < 0:
     raise newException(EBitarray, "Specified index is too large.")
   if (index.b - index.a) > (sizeof(TBitScalar) * 8):
     raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
@@ -123,7 +123,7 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
   ## up to the maximum element size (64 bits by default)
   ## Note: This inserts using a bitwise-or, it will *not* overwrite previously
   ## set true values!
-  if index.b >= ba.size_bits:
+  if index.b >= ba.size_bits or index.a < 0:
     raise newException(EBitarray, "Specified index is too large.")
   if (index.b - index.a) > (sizeof(TBitScalar) * 8):
     raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
