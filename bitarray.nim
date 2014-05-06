@@ -13,9 +13,8 @@ type
 type
   EBitarray = object of EBase
   TBitarrayKind = enum inmem, mmap
-  PBitarray = ref TBitarray
   TFlexArray {.unchecked.} = array[0..0, TBitScalar]
-  TBitarray = ref object
+  TBitarray* = ref object
     size_elements: int
     size_bits: int
     size_specified: int
