@@ -141,7 +141,7 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
     ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
 
 
-proc `$`(ba: TBitarray): string =
+proc `$`*(ba: TBitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
   result = ("Bitarray with $1 bits and $2 unique elements. In-memory?: $3." %
             [$ba.size_bits, $ba.size_elements, $ba.kind])
