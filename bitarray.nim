@@ -209,13 +209,13 @@ when isMainModule:
   var bit_value: bool
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    bit_value = bitarray[n_test_positions[i]]
+    doAssert bitarray[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (in-memory).")
 
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    bit_value = bitarray_b[n_test_positions[i]]
+    doAssert bitarray[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
 
