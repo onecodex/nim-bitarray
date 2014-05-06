@@ -64,6 +64,8 @@ proc create_bitarray(file: string, size: int = -1): TBitarray =
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
   ## Sets the bit at an index to be either 0 (false) or 1 (true)
+  if index >= ba.size_bits:
+    raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
   if ba.in_memory:
@@ -80,6 +82,8 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
 
 proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   ## Gets the bit at an index element (returns a bool)
+  if index >= ba.size_bits:
+    raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = index mod (sizeof(TBitScalar) * 8)
   if ba.in_memory:
@@ -143,10 +147,10 @@ when isMainModule:
   for i in 0..(n_tests - 1):
     bit_value = bitarray[n_test_positions[i]]
   end_time = times.cpuTime()
-  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (in-memory).")
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (in-memory).")
 
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
     bit_value = bitarray_b[n_test_positions[i]]
   end_time = times.cpuTime()
-  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (mmap-backed).")
+  echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
