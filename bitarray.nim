@@ -13,6 +13,7 @@ type
   EBitarray = object of EBase
   TBitarrayKind = enum inmem, mmap
   PBitarray = ref TBitarray
+  TFlexArray {.unchecked.} = array[0..0, TBitScalar]
   TBitarray = object
     size_elements: int
     size_bits: int
@@ -21,7 +22,8 @@ type
     of true:
       bitarray: seq[TBitScalar]
     of false:
-      bitarray_mmap: TMemFile
+      bitarray_mmap: ptr TFlexArray
+
 
 
 proc create_bitarray(size: int): TBitarray =
@@ -51,8 +53,8 @@ proc create_bitarray(file: string, size: int = -1): TBitarray =
       raise newException(EBitarray, "No existing mmap file. Must specify size to create one.")
     mm_file = open(file, mode = fmReadWrite, newFileSize = n_elements)
 
-
-  result = TBitarray(in_memory: false, bitarray_mmap: mm_file,
+  result = TBitarray(in_memory: false,
+                     bitarray_mmap: cast[ptr TFlexArray](mm_file.mem),
                      size_elements: n_elements, size_bits: n_bits,
                      size_specified: size)
 
@@ -66,6 +68,11 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
       ba.bitarray[i_element] = (ba.bitarray[i_element] or (0b1 shl i_offset))
     else:
       ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not 0b1) shl i_offset))
+  else:
+    if val:
+      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] or (0b1 shl i_offset))
+    else:
+      ba.bitarray_mmap[i_element] = (ba.bitarray_mmap[i_element] and ((not 0b1) shl i_offset))
 
 
 proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
@@ -74,7 +81,8 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   let i_offset = index mod (sizeof(TBitScalar) * 8)
   if ba.in_memory:
     result = bool((ba.bitarray[i_element] shr i_offset) and 1)
-
+  else:
+    result = bool((ba.bitarray_mmap[i_element] shr i_offset) and 1)
 
 proc `$`(ba: TBitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
@@ -87,68 +95,17 @@ when isMainModule:
   var bitarray = create_bitarray(int(1e8))
   echo "Created a bitarray."
   echo bitarray
-  # echo type(bitarray)
   bitarray[0] = true
   echo bitarray.bitarray[0..10]
   bitarray[1] = true
   echo bitarray.bitarray[0..10]
   bitarray[2] = true
   echo bitarray.bitarray[0..10]
-  echo 0b1
-  echo 0b10
-  echo 0b100
-  echo 0b1000
-  echo 0b10000
-  echo 0b100000
-  echo 0b1000000
-  echo 0b10000000
-  echo 0b11111111
 
   var bitarray_b = create_bitarray("/tmp/ba.mmap", size=1024 * 8)
-  echo bitarray_b
-  # echo bitarray_b.bitarray_mmap.mem.addr
-  echo "Size is ", sizeOf(bitarray_b.bitarray_mmap.mem)
-  # echo type(bitarray_b.bitarray_mmap.mem)
-  # echo bitarray_b.bitarray_mmap.mem[]
-  # echo cast[uint64](bitarray_b.bitarray_mmap.mem[])
-  echo cast[uint64](bitarray_b.bitarray_mmap.mem)
-  echo cast[uint64](bitarray_b.bitarray_mmap.mem)
-  echo cast[uint64](bitarray_b.bitarray_mmap.mem)
-  echo cast[uint64](bitarray_b.bitarray_mmap.mem)
-  echo cast[uint64](bitarray_b.bitarray_mmap.mem + 8)
-
-  var
-    mm, mm_full: TMemFile
-
-  if not os.existsFile("/tmp/test.mmap"):
-    mm = memfiles.open("/tmp/test.mmap", mode = fmReadWrite, newFileSize = 1024)    # Create a new file
-    mm.close()
-
-  mm_full = memfiles.open("/tmp/test.mmap", mode = fmRead, mappedSize = -1)
-  mm_full.close()
-
-
-  var
-    tststr: string = "hello, world!"
-    tstptr: ptr string = addr(tststr)
-    tstptr2: pointer
-    memad: int
-
-  var p = cast[ptr array[1024, int8]](bitarray_b.bitarray_mmap.mem)
-  echo "P0 is ", p[0]
-  p[0] = 1'i8
-  echo "P0 is ", p[0]
-
-  # echo bitarray_b.bitarray_mmap.mem[]
-
-  echo (type(tstptr) is ptr)
-  echo (type(bitarray_b.bitarray_mmap.mem) is ptr)
-  echo (type(bitarray_b.bitarray_mmap.mem) is pointer)
-  # echo type(p)
-  echo cast[ptr int](bitarray_b.bitarray_mmap.mem + 8)[]
-  echo tstptr[] # prints hello, world!
-  memad = cast[int](tstptr) # address, same as the one listed in repr(tstptr)!
-  echo memad
-  tstptr2 = cast[pointer](memad) # generic pointer to address?
-  tstptr = cast[ptr string](tstptr2) # converting back to pointer to string?
-  echo tstptr[] # SIGSEV :-(
+  echo bitarray_b.bitarray_mmap[0]
+  echo bitarray_b.bitarray_mmap[1]
+  echo bitarray_b.bitarray_mmap[2]
+  echo bitarray_b.bitarray_mmap[3]
+  bitarray_b.bitarray_mmap[3] = 4
+  echo bitarray_b.bitarray_mmap[3]
