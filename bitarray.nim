@@ -104,19 +104,42 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
   let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
   let i_element_b = index.b div (sizeof(TBitScalar) * 8)
   let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
-  echo i_element_a, " ", i_offset_a, " ", i_element_b, " ", i_offset_b
   if ba.in_memory:
     var result = ba.bitarray[i_element_a] shr i_offset_a
-    echo "Slice a is ", result
-    echo "Binary representation: ", toBin(result, 8 * sizeof(TBitScalar))
     if i_element_a != i_element_b:  # Combine two slices
       let slice_b = ba.bitarray[i_element_b] shl i_offset_b
-      echo "Slice b is ", slice_b
-      echo "Binary representation: ", toBin(slice_b, 8 * sizeof(TBitScalar))
       result = result or slice_b
-    echo "Final result:          ", toBin(result, 8 * sizeof(TBitScalar))
+    return result  # Fails if this isn't included?
+  else:
+    var result = ba.bitarray_mmap[i_element_a] shr i_offset_a
+    if i_element_a != i_element_b:  # Combine two slices
+      let slice_b = ba.bitarray_mmap[i_element_b] shl i_offset_b
+      result = result or slice_b
+    return result  # Fails is this isn't included?
 
 
+proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
+  ## Set the bits for a slice of the bitarray. Supports slice sizes
+  ## up to the maximum element size (64 bits by default)
+  ## Note: This inserts using a bitwise-or, it will *not* overwrite previously
+  ## set true values!
+  if index.b >= ba.size_bits:
+    raise newException(EBitarray, "Specified index is too large.")
+  if (index.b - index.a) > (sizeof(TBitScalar) * 8):
+    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+
+  # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
+  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
+  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
+  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
+  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+
+  if ba.in_memory:
+    let insert_a = val shl i_offset_a
+    ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
+    if i_element_a != i_element_b:
+      let insert_b = val shr i_offset_b
+      ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
 
 
 proc `$`(ba: TBitarray): string =
@@ -147,6 +170,21 @@ when isMainModule:
   echo bitarray_b.bitarray_mmap[3]
   bitarray_b.bitarray_mmap[3] = 4
   echo bitarray_b.bitarray_mmap[3]
+
+  # Test range lookups/inserts
+  bitarray[65] = true
+  assert bitarray[65]
+  echo "Res is: ", bitarray[2..66], " binary: ", toBin(bitarray[2..66], 64)
+  assert bitarray[2..66] == -9223372036854775807
+  bitarray[131] = true
+  bitarray[194] = true
+  assert bitarray[2..66] == bitarray[131..194]
+  let slice_value = bitarray[131..194]
+  bitarray[270..333] = slice_value
+  bitarray[400..463] = TBitScalar(-9223372036854775807)
+  assert bitarray[131..194] == bitarray[270..333]
+  assert bitarray[131..194] == bitarray[400..463]
+  echo bitarray.bitarray[0..10]
 
   # Seed RNG
   randomize(2882)  # Seed the RNG
@@ -181,7 +219,3 @@ when isMainModule:
     bit_value = bitarray_b[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
-
-  bitarray[65] = true
-  echo bitarray[2..66]
-  echo bitarray.bitarray[0..10]
