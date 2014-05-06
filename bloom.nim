@@ -45,3 +45,4 @@ when isMainModule:
   var bf = create_bloom_filter(n_elements = int(1e6), n_bits_per_item = 12, n_hashes = 7)
   bf.insert("Here we go!")
   assert bf.lookup("Here we go!")
+  assert (not bf.lookup("I'm not here."))
