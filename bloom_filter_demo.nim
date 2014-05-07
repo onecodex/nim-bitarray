@@ -3,35 +3,35 @@ import hashes
 import strutils
 
 type
-  BloomFilter = object
-    bitarray: Bitarray
+  TBloomFilter = object
+    bitarray: TBitarray
     n_hashes: int
     n_bits_per_item: int
     n_bits: int
 
-proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): BloomFilter =
+proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): TBloomFilter =
   ## Generate a Bloom filter, yay so simple!
   let n_bits = n_elements * n_bits_per_item
-  result = BloomFilter(
+  result = TBloomFilter(
       bitarray: create_bitarray(n_bits),
       n_hashes: n_hashes,
       n_bits_per_item: n_bits_per_item,
       n_bits: n_bits
     )
 
-proc hash(bf: BloomFilter, item: string): seq[int] =
+proc hash(bf: TBloomFilter, item: string): seq[int] =
   newSeq(result, bf.n_hashes)
   for i in 0..(bf.n_hashes - 1):
     result[i] = abs(hash(item & "_" & intToStr(i))) mod bf.n_bits
   return result
 
-proc insert*(bf: var BloomFilter, item: string) =
+proc insert*(bf: var TBloomFilter, item: string) =
   ## Put the string there
   let hashes = hash(bf, item)
   for h in hashes:
     bf.bitarray[h] = true
 
-proc lookup*(bf: var BloomFilter, item: string): bool =
+proc lookup*(bf: var TBloomFilter, item: string): bool =
   ## Is the string there?
   let hashes = hash(bf, item)
   result = true
