@@ -8,7 +8,7 @@ from times import nil
 
 # Type declarations
 type
-  TBitScalar* = int
+  TBitScalar* = uint
 
 type
   EBitarray = object of EBase
@@ -83,7 +83,7 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
   if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
-  let i_offset = index mod (sizeof(TBitScalar) * 8)
+  let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
@@ -95,7 +95,7 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
   let i_element = index div (sizeof(TBitScalar) * 8)
-  let i_offset = index mod (sizeof(TBitScalar) * 8)
+  let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
   result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
 
@@ -108,9 +108,9 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
     raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
 
   let i_element_a = index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
+  let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
   let i_element_b = index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+  let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
   var result = ba.bitarray[i_element_a] shr i_offset_a
   if i_element_a != i_element_b:  # Combine two slices
     let slice_b = ba.bitarray[i_element_b] shl i_offset_b
@@ -130,9 +130,9 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
 
   # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
   let i_element_a = index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
+  let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
   let i_element_b = index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+  let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
 
   let insert_a = val shl i_offset_a
   ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
@@ -170,11 +170,12 @@ when isMainModule:
   bitarray_b.bitarray[3] = 4
   echo bitarray_b.bitarray[3]
 
-  # Test range lookups/inserts
+  # # Test range lookups/inserts
   bitarray[65] = true
-  assert bitarray[65]
-  echo "Res is: ", bitarray[2..66], " binary: ", toBin(bitarray[2..66], 64)
-  assert bitarray[2..66] == -9223372036854775807
+  doAssert bitarray[65]
+  echo "Res is: ", bitarray[2..66], " binary: ", toBin(int(bitarray[2..66]), 64)
+  doAssert bitarray[2..66] == TBitScalar(-9223372036854775807)  # Lexer error prevents using 9223372036854775809'u64 directly... ugh
+
   bitarray[131] = true
   bitarray[194] = true
   assert bitarray[2..66] == bitarray[131..194]
