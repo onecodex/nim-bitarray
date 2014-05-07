@@ -8,28 +8,28 @@ from times import nil
 
 # Type declarations
 type
-  TBitScalar* = int
+  BitScalar* = int
 
 type
   EBitarray = object of EBase
-  TBitarrayKind = enum inmem, mmap
-  TFlexArray {.unchecked.} = array[0..0, TBitScalar]
-  TBitarray* = ref object
+  BitarrayKind = enum inmem, mmap
+  FlexArray {.unchecked.} = array[0..0, BitScalar]
+  Bitarray* = ref object
     size_elements: int
     size_bits*: int
     size_specified*: int
-    bitarray: ptr TFlexArray
-    case kind: TBitarrayKind
+    bitarray: ptr FlexArray
+    case kind: BitarrayKind
     of inmem:
       nil
     of mmap:
       mm_filehandle: TMemFile
 
 
-const ONE = TBitScalar(1)
+const ONE = BitScalar(1)
 
 
-proc finalize_bitarray(a: TBitarray) =
+proc finalize_bitarray(a: Bitarray) =
   if not a.bitarray.isNil:
     case a.kind
     of inmem:
@@ -39,20 +39,20 @@ proc finalize_bitarray(a: TBitarray) =
       a.mm_filehandle.close()
 
 
-proc create_bitarray*(size: int): TBitarray =
+proc create_bitarray*(size: int): Bitarray =
   ## Creates an in-memory bitarray using a specified input size.
   ## Note that this will round up to the nearest byte.
-  let n_elements = size div (sizeof(TBitScalar) * 8)
-  let n_bits = n_elements * (sizeof(TBitScalar) * 8)
+  let n_elements = size div (sizeof(BitScalar) * 8)
+  let n_bits = n_elements * (sizeof(BitScalar) * 8)
   new(result, finalize_bitarray)
   result.kind = inmem
-  result.bitarray = cast[ptr TFlexArray](alloc0(n_elements * sizeof(TBitScalar)))
+  result.bitarray = cast[ptr FlexArray](alloc0(n_elements * sizeof(BitScalar)))
   result.size_elements = n_elements
   result.size_bits = n_bits
   result.size_specified = size
 
 
-proc create_bitarray*(file: string, size: int = -1): TBitarray =
+proc create_bitarray*(file: string, size: int = -1): Bitarray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -71,46 +71,46 @@ proc create_bitarray*(file: string, size: int = -1): TBitarray =
 
   new(result, finalize_bitarray)
   result.kind = mmap
-  result.bitarray = cast[ptr TFlexArray](mm_file.mem)
+  result.bitarray = cast[ptr FlexArray](mm_file.mem)
   result.size_elements = n_elements
   result.size_bits = n_bits
   result.size_specified = size
   result.mm_filehandle = mm_file
 
 
-proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
+proc `[]=`*(ba: var Bitarray, index: int, val: bool) {.inline.} =
   ## Sets the bit at an index to be either 0 (false) or 1 (true)
   if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
-  let i_element = index div (sizeof(TBitScalar) * 8)
-  let i_offset = index mod (sizeof(TBitScalar) * 8)
+  let i_element = index div (sizeof(BitScalar) * 8)
+  let i_offset = index mod (sizeof(BitScalar) * 8)
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
     ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
 
 
-proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
+proc `[]`*(ba: var Bitarray, index: int): bool {.inline.} =
   ## Gets the bit at an index element (returns a bool)
   if index >= ba.size_bits or index < 0:
     raise newException(EBitarray, "Specified index is too large.")
-  let i_element = index div (sizeof(TBitScalar) * 8)
-  let i_offset = index mod (sizeof(TBitScalar) * 8)
+  let i_element = index div (sizeof(BitScalar) * 8)
+  let i_offset = index mod (sizeof(BitScalar) * 8)
   result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
 
-proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
+proc `[]`*(ba: var Bitarray, index: TSlice): BitScalar {.inline.} =
   ## Get the bits for a slice of the bitarray. Supports slice sizes
   ## up the maximum element size (64 bits by default)
   if index.b >= ba.size_bits or index.a < 0:
     raise newException(EBitarray, "Specified index is too large.")
-  if (index.b - index.a) > (sizeof(TBitScalar) * 8):
-    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+  if (index.b - index.a) > (sizeof(BitScalar) * 8):
+    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(BitScalar) * 8))
 
-  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
-  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+  let i_element_a = index.a div (sizeof(BitScalar) * 8)
+  let i_offset_a = index.a mod (sizeof(BitScalar) * 8)
+  let i_element_b = index.b div (sizeof(BitScalar) * 8)
+  let i_offset_b = sizeof(BitScalar) * 8 - i_offset_a
   var result = ba.bitarray[i_element_a] shr i_offset_a
   if i_element_a != i_element_b:  # Combine two slices
     let slice_b = ba.bitarray[i_element_b] shl i_offset_b
@@ -118,21 +118,21 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
   return result  # Fails if this isn't included?
 
 
-proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
+proc `[]=`*(ba: var Bitarray, index: TSlice, val: BitScalar) {.inline.} =
   ## Set the bits for a slice of the bitarray. Supports slice sizes
   ## up to the maximum element size (64 bits by default)
   ## Note: This inserts using a bitwise-or, it will *not* overwrite previously
   ## set true values!
   if index.b >= ba.size_bits or index.a < 0:
     raise newException(EBitarray, "Specified index is too large.")
-  if (index.b - index.a) > (sizeof(TBitScalar) * 8):
-    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+  if (index.b - index.a) > (sizeof(BitScalar) * 8):
+    raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(BitScalar) * 8))
 
   # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
-  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = index.a mod (sizeof(TBitScalar) * 8)
-  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = sizeof(TBitScalar) * 8 - i_offset_a
+  let i_element_a = index.a div (sizeof(BitScalar) * 8)
+  let i_offset_a = index.a mod (sizeof(BitScalar) * 8)
+  let i_element_b = index.b div (sizeof(BitScalar) * 8)
+  let i_offset_b = sizeof(BitScalar) * 8 - i_offset_a
 
   let insert_a = val shl i_offset_a
   ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
@@ -141,7 +141,7 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
     ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
 
 
-proc `$`*(ba: TBitarray): string =
+proc `$`*(ba: Bitarray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
   result = ("Bitarray with $1 bits and $2 unique elements. In-memory?: $3." %
             [$ba.size_bits, $ba.size_elements, $ba.kind])
@@ -152,38 +152,38 @@ when isMainModule:
   let n_tests: int = int(1e6)
   let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
 
-  var bitarray = create_bitarray(n_bits)
+  var ba = create_bitarray(n_bits)
   echo "Created a bitarray."
-  echo bitarray
-  bitarray[0] = true
-  echo bitarray.bitarray[0..10]
-  bitarray[1] = true
-  echo bitarray.bitarray[0..10]
-  bitarray[2] = true
-  echo bitarray.bitarray[0..10]
+  echo ba
+  ba[0] = true
+  echo ba.bitarray[0..10]
+  ba[1] = true
+  echo ba.bitarray[0..10]
+  ba[2] = true
+  echo ba.bitarray[0..10]
 
-  var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
-  echo bitarray_b.bitarray[0]
-  echo bitarray_b.bitarray[1]
-  echo bitarray_b.bitarray[2]
-  echo bitarray_b.bitarray[3]
-  bitarray_b.bitarray[3] = 4
-  echo bitarray_b.bitarray[3]
+  var bab = create_bitarray("/tmp/ba.mmap", size=n_bits)
+  echo bab.bitarray[0]
+  echo bab.bitarray[1]
+  echo bab.bitarray[2]
+  echo bab.bitarray[3]
+  bab.bitarray[3] = 4
+  echo bab.bitarray[3]
 
   # Test range lookups/inserts
-  bitarray[65] = true
-  assert bitarray[65]
-  echo "Res is: ", bitarray[2..66], " binary: ", toBin(bitarray[2..66], 64)
-  assert bitarray[2..66] == -9223372036854775807
-  bitarray[131] = true
-  bitarray[194] = true
-  assert bitarray[2..66] == bitarray[131..194]
-  let slice_value = bitarray[131..194]
-  bitarray[270..333] = slice_value
-  bitarray[400..463] = TBitScalar(-9223372036854775807)
-  assert bitarray[131..194] == bitarray[270..333]
-  assert bitarray[131..194] == bitarray[400..463]
-  echo bitarray.bitarray[0..10]
+  ba[65] = true
+  assert ba[65]
+  echo "Res is: ", ba[2..66], " binary: ", toBin(ba[2..66], 64)
+  assert ba[2..66] == -9223372036854775807
+  ba[131] = true
+  ba[194] = true
+  assert ba[2..66] == ba[131..194]
+  let slice_value = ba[131..194]
+  ba[270..333] = slice_value
+  ba[400..463] = BitScalar(-9223372036854775807)
+  assert ba[131..194] == ba[270..333]
+  assert ba[131..194] == ba[400..463]
+  echo ba.bitarray[0..10]
 
   # Seed RNG
   randomize(2882)  # Seed the RNG
@@ -196,26 +196,26 @@ when isMainModule:
   var start_time, end_time: float
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    bitarray[n_test_positions[i]] = true
+    ba[n_test_positions[i]] = true
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (in-memory).")
 
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    bitarray_b[n_test_positions[i]] = true
+    bab[n_test_positions[i]] = true
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (mmap-backed).")
 
   var bit_value: bool
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    doAssert bitarray[n_test_positions[i]]
+    doAssert ba[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (in-memory).")
 
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    doAssert bitarray[n_test_positions[i]]
+    doAssert bab[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
 
