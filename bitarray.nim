@@ -153,27 +153,16 @@ when isMainModule:
   let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
 
   var bitarray = create_bitarray(n_bits)
-  echo "Created a bitarray."
-  echo bitarray
   bitarray[0] = true
-  echo bitarray.bitarray[0..10]
   bitarray[1] = true
-  echo bitarray.bitarray[0..10]
   bitarray[2] = true
-  echo bitarray.bitarray[0..10]
 
   var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
-  echo bitarray_b.bitarray[0]
-  echo bitarray_b.bitarray[1]
-  echo bitarray_b.bitarray[2]
-  echo bitarray_b.bitarray[3]
   bitarray_b.bitarray[3] = 4
-  echo bitarray_b.bitarray[3]
 
   # # Test range lookups/inserts
   bitarray[65] = true
   doAssert bitarray[65]
-  echo "Res is: ", bitarray[2..66], " binary: ", toBin(int(bitarray[2..66]), 64)
   doAssert bitarray[2..66] == TBitScalar(-9223372036854775807)  # Lexer error prevents using 9223372036854775809'u64 directly... ugh
 
   bitarray[131] = true
@@ -184,7 +173,6 @@ when isMainModule:
   bitarray[400..463] = TBitScalar(-9223372036854775807)
   assert bitarray[131..194] == bitarray[270..333]
   assert bitarray[131..194] == bitarray[400..463]
-  echo bitarray.bitarray[0..10]
 
   # Seed RNG
   randomize(2882)  # Seed the RNG
@@ -220,3 +208,4 @@ when isMainModule:
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
 
+  echo("All tests successfully completed.")
