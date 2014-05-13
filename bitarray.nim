@@ -18,7 +18,7 @@ type
     size_elements: int
     size_bits*: int
     size_specified*: int
-    bitarray: ptr TFlexArray
+    bitarray*: ptr TFlexArray
     case kind: TBitarrayKind
     of inmem:
       nil
