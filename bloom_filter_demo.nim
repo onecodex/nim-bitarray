@@ -47,7 +47,7 @@ proc lookup*(bf: var TBloomFilter, item: string): bool =
 
 when isMainModule:
   echo "Quick working Bloom filter example."
-  let n_tests = int(1e6)
+  let n_tests = int(2e7)
   var bf = create_bloom_filter(n_elements = n_tests, n_bits_per_item = 12, n_hashes = 7)
   bf.insert("Here we go!")
   assert bf.lookup("Here we go!")
