@@ -19,6 +19,7 @@ type
     size_bits*: int
     size_specified*: int
     bitarray*: ptr TFlexArray
+    read_only: bool
     case kind: TBitarrayKind
     of inmem:
       nil
@@ -52,7 +53,7 @@ proc create_bitarray*(size: int): TBitarray =
   result.size_specified = size
 
 
-proc create_bitarray*(file: string, size: int = -1): TBitarray =
+proc create_bitarray*(file: string, size: int = -1, read_only: bool = false): TBitarray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -76,6 +77,7 @@ proc create_bitarray*(file: string, size: int = -1): TBitarray =
   result.size_bits = n_bits
   result.size_specified = size
   result.mm_filehandle = mm_file
+  result.read_only = read_only
 
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
@@ -83,6 +85,8 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
   when not defined(release):
     if index >= ba.size_bits or index < 0:
       raise newException(EBitarray, "Specified index is too large.")
+  if ba.read_only:
+    raise newException(EBitarray, "Cannot write to a read-only array.")
   let i_element = index div (sizeof(TBitScalar) * 8)
   let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
   if val:
@@ -131,6 +135,9 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
       raise newException(EBitarray, "Specified index is too large.")
     if (index.b - index.a) > (sizeof(TBitScalar) * 8):
       raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+
+  if ba.read_only:
+    raise newException(EBitarray, "Cannot write to a read-only array.")
 
   # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
   let i_element_a = index.a div (sizeof(TBitScalar) * 8)
@@ -211,5 +218,16 @@ when isMainModule:
     doAssert bitarray[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
+
+  # Attempt to reopen bitarray and write to it
+  bitarray_b[0] = false
+  bitarray_b.mm_filehandle.close()
+  var bitarray_c = create_bitarray("/tmp/ba.mmap", size=n_bits, read_only=true)
+  try:
+    bitarray_c[0] = true
+    doAssert false
+  except EBitarray:
+    doAssert true
+  doAssert bitarray_c[0] == false
 
   echo("All tests successfully completed.")
