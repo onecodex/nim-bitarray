@@ -11,7 +11,7 @@ type
   TBitScalar* = uint
 
 type
-  EBitarray = object of EBase
+  EBitarray* = object of EBase
   TBitarrayKind = enum inmem, mmap
   TFlexArray {.unchecked.} = array[0..0, TBitScalar]
   TBitarray* = ref object
@@ -38,6 +38,14 @@ proc finalize_bitarray(a: TBitarray) =
       a.bitarray = nil
     of mmap:
       a.mm_filehandle.close()
+
+
+proc close*(a: TBitarray) =
+  case a.kind
+  of inmem:
+    discard
+  of mmap:
+    a.mm_filehandle.close()
 
 
 proc create_bitarray*(size: int): TBitarray =
