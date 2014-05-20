@@ -66,13 +66,15 @@ proc create_bitarray*(file: string, size: int = -1, read_only: bool = false): TB
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
   ## it will be created.
-  let n_elements = size div (sizeof(char) * 8)
+  var n_elements = size div (sizeof(char) * 8)
+  if size mod (sizeof(char) * 8) != 0:
+    n_elements += 1
   let n_bits = n_elements * (sizeof(char) * 8)
   var mm_file: TMemFile
   if os.existsFile(file):
     mm_file = open(file, mode = fmReadWrite, mappedSize = -1)
     if size != -1 and mm_file.size != n_elements:
-      raise newException(EBitarray, "Existing mmap file does not have the specified size $1" % $size)
+      raise newException(EBitarray, "Existing mmap file $# does not have the specified size $#. Size is $# instead." % [$file, $n_elements, $mm_file.size])
   else:
     if size == -1:
       raise newException(EBitarray, "No existing mmap file. Must specify size to create one.")
@@ -82,7 +84,7 @@ proc create_bitarray*(file: string, size: int = -1, read_only: bool = false): TB
   result.kind = mmap
   result.bitarray = cast[ptr TFlexArray](mm_file.mem)
   result.size_elements = n_elements
-  result.size_bits = n_bits
+  result.size_bits = mm_file.size * (sizeof(char) * 8)
   result.size_specified = size
   result.mm_filehandle = mm_file
   result.read_only = read_only
