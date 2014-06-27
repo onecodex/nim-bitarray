@@ -1,13 +1,13 @@
 dependencies:
   cache_directories:
-    - ~/Nimrod
-    - ~/.babel
+    - Nimrod
+    - babel
 
   pre:
-    - if [[ ! -e ~/Nimrod/bin/nimrod ]]; then cd ~ && git clone -b devel git://github.com/Araq/Nimrod.git && cd Nimrod && git clone --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
-    - ln -s ~/Nimrod/bin/nimrod /home/ubuntu/bin/nimrod
-    - if [[ ! -e ~/.babel/bin/babel ]]; then cd ~ && git clone https://github.com/nimrod-code/babel.git && cd babel && nimrod c -r src/babel install -y; fi
-    - ln -s ~/.babel/bin/babel /home/ubuntu/bin/babel
+    - if [[ ! -e Nimrod/bin/nimrod ]]; then git clone -b devel git://github.com/Araq/Nimrod.git && cd Nimrod && git clone --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
+    - ln -s `readlink -f Nimrod/bin/nimrod` /home/ubuntu/bin/nimrod
+    - if [[ ! -e babel/bin/babel ]]; then git clone https://github.com/nimrod-code/babel.git && cd babel && nimrod c -r src/babel install -y; fi
+    - ln -s `readlink -f babel/bin/babel` /home/ubuntu/bin/babel
     - babel update
     - babel install -y
 
