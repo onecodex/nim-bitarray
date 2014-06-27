@@ -29,6 +29,11 @@ type
 
 const ONE = TBitScalar(1)
 
+# Note need to change 3rd create_bitarray method's
+# header setter (uses [0]) if changing this
+const HEADER_SIZE = 1
+const DEFAULT_HEADER = TBitScalar(0xFFFFFFFFFFFFFFFF)  # 8 bytes
+
 
 proc finalize_bitarray(a: TBitarray) =
   if not a.bitarray.isNil:
@@ -48,7 +53,7 @@ proc close*(a: TBitarray) =
     a.mm_filehandle.close()
 
 
-proc create_bitarray*(size: int): TBitarray =
+proc create_bitarray*(size: int, header: TBitScalar = DEFAULT_HEADER): TBitarray =
   ## Creates an in-memory bitarray using a specified input size.
   ## Note that this will round up to the nearest byte.
   let n_elements = size div (sizeof(TBitScalar) * 8)
@@ -59,9 +64,10 @@ proc create_bitarray*(size: int): TBitarray =
   result.size_elements = n_elements
   result.size_bits = n_bits
   result.size_specified = size
+  result.bitarray[0] = header
 
 
-proc create_bitarray*(file: string, size: int = -1, read_only: bool = false): TBitarray =
+proc create_bitarray*(file: string, size: int = -1, header: TBitScalar = DEFAULT_HEADER, read_only: bool = false): TBitarray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -88,6 +94,11 @@ proc create_bitarray*(file: string, size: int = -1, read_only: bool = false): TB
   result.size_specified = size
   result.mm_filehandle = mm_file
   result.read_only = read_only
+  result.bitarray[0] = header
+
+
+proc get_header*(ba: TBitarray): TBitScalar =
+  result = ba.bitarray[0]
 
 
 proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
@@ -97,7 +108,7 @@ proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
       raise newException(EBitarray, "Specified index is too large.")
   if ba.read_only:
     raise newException(EBitarray, "Cannot write to a read-only array.")
-  let i_element = index div (sizeof(TBitScalar) * 8)
+  let i_element = HEADER_SIZE + index div (sizeof(TBitScalar) * 8)
   let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
@@ -110,7 +121,7 @@ proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
   when not defined(release):
     if index >= ba.size_bits or index < 0:
       raise newException(EBitarray, "Specified index is too large.")
-  let i_element = index div (sizeof(TBitScalar) * 8)
+  let i_element = HEADER_SIZE + index div (sizeof(TBitScalar) * 8)
   let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
   result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
@@ -124,9 +135,9 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
     if (index.b - index.a) > (sizeof(TBitScalar) * 8):
       raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
 
-  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
+  let i_element_a = HEADER_SIZE + index.a div (sizeof(TBitScalar) * 8)
   let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
-  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
+  let i_element_b = HEADER_SIZE + index.b div (sizeof(TBitScalar) * 8)
   let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
   var result = ba.bitarray[i_element_a] shr i_offset_a
   if i_element_a != i_element_b:  # Combine two slices
@@ -150,9 +161,9 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
     raise newException(EBitarray, "Cannot write to a read-only array.")
 
   # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
-  let i_element_a = index.a div (sizeof(TBitScalar) * 8)
+  let i_element_a = HEADER_SIZE + index.a div (sizeof(TBitScalar) * 8)
   let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
-  let i_element_b = index.b div (sizeof(TBitScalar) * 8)
+  let i_element_b = HEADER_SIZE + index.b div (sizeof(TBitScalar) * 8)
   let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
 
   let insert_a = val shl i_offset_a
@@ -239,5 +250,11 @@ when isMainModule:
   except EBitarray:
     doAssert true
   doAssert bitarray_c[0] == false
+
+  # Header testing; first assert get_header is default
+  doAssert bitarray.get_header() == DEFAULT_HEADER
+  let new_header = TBitScalar(0xFFFFFFFFFFFFFEEE)
+  var bitarray_d = create_bitarray(100000, header = new_header)
+  doAssert bitarray_d.get_header() == new_header
 
   echo("All tests successfully completed.")
