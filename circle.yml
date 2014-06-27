@@ -1,0 +1,24 @@
+machine:
+  pre:
+    - git clone -b devel git://github.com/Araq/Nimrod.git
+    - cd Nimrod && git clone --depth 1 git://github.com/nimrod-code/csources
+    - cd Nimrod/csources && sh build.sh
+    - cd Nimrod && bin/nimrod c koch && ./koch boot -d:release
+    - ln -s ~/Nimrod/bin/nimrod /home/ubuntu/bin/nimrod
+    - git clone https://github.com/nimrod-code/babel.git
+    - cd babel && nimrod c -r src/babel install -y
+    - ln -s ~/.babel/bin/babel /home/ubuntu/bin/babel
+    - babel update
+
+
+dependencies:
+  pre:
+    - babel install -y
+
+
+test:
+  pre:
+    - nimrod c bitarray.nim
+
+  override:
+    - ./bitarray
