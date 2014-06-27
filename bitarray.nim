@@ -1,4 +1,4 @@
-import private/memfiles
+import memfiles
 from os import nil
 from strutils import `%`, formatFloat, ffDecimal, toBin
 import unsigned
