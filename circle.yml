@@ -5,7 +5,7 @@ dependencies:
     - ~/.babel
 
   pre:
-    - if [[ ! -e Nimrod/bin/nimrod ]]; then git clone -b devel git://github.com/Araq/Nimrod.git && cd Nimrod && git clone --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
+    - if [[ ! -e Nimrod/bin/nimrod ]]; then git clone -b master git://github.com/Araq/Nimrod.git && cd Nimrod && git clone --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
     - ln -s `readlink -f Nimrod/bin/nimrod` /home/ubuntu/bin/nimrod
     - if [[ ! -e ~/.babel/bin/babel ]]; then if [[ ! -e babel ]]; then git clone https://github.com/nimrod-code/babel.git; fi; cd babel && nimrod c -r src/babel install -y; fi
     - ln -s `readlink -f ~/.babel/bin/babel` /home/ubuntu/bin/babel
