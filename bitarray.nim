@@ -75,7 +75,6 @@ proc create_bitarray*(file: string, size: int = -1, header: TBitScalar = DEFAULT
   var n_elements = size div (sizeof(char) * 8)
   if size mod (sizeof(char) * 8) != 0:
     n_elements += 1
-  let n_bits = n_elements * (sizeof(char) * 8)
   var mm_file: TMemFile
   if os.existsFile(file):
     mm_file = open(file, mode = fmReadWrite, mappedSize = -1)
