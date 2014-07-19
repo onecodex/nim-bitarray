@@ -5,4 +5,4 @@ nimrod-bitarray
 
 Bitarray implementation in Nimrod
 
-An efficient bitarray implementation in Nimrod. Includes a demo Bloom filter in ~75 lines for kicks.
+An efficient bitarray implementation in Nimrod. Includes a demo Bloom filter in ~75 lines that also requires `murmur3` >= v0.1.2.

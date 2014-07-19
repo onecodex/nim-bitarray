@@ -1,3 +1,9 @@
+# This is a demonstration script
+# for the bitarray and also requires
+# murmur3 >= 0.1.2. As that is
+# not a requirement of the main BitArray
+# type, it is not installed automatically
+# by Babel / on install of this module.
 import bitarray
 import murmur3
 import strutils
@@ -5,16 +11,16 @@ import times
 from math import random, randomize
 
 type
-  TBloomFilter = object
-    bitarray: TBitarray
+  BloomFilter = object
+    bitarray: BitArray
     n_hashes: int
     n_bits_per_item: int
     n_bits: int
 
-proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): TBloomFilter =
-  ## Generate a Bloom filter, yay so simple!
+proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): BloomFilter =
+  ## Generate a Bloom filter, nice and simple!
   let n_bits = n_elements * n_bits_per_item
-  result = TBloomFilter(
+  result = BloomFilter(
       bitarray: create_bitarray(n_bits),
       n_hashes: n_hashes,
       n_bits_per_item: n_bits_per_item,
@@ -22,21 +28,21 @@ proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: 
     )
 
 {.push overflowChecks: off.}
-proc hash(bf: TBloomFilter, item: string): seq[int] =
-  var hashes: TMurmurHashes = murmur_hash(item, 0)
+proc hash(bf: BloomFilter, item: string): seq[int] =
+  var hashes: MurmurHashes = murmur_hash(item, 0)
   newSeq(result, bf.n_hashes)
   for i in 0..(bf.n_hashes - 1):
-    result[i] = abs(hashes[0] + hashes[1] * i) mod bf.n_bits
+    result[i] = int(abs(hashes[0] + hashes[1] * i) mod bf.n_bits)  # Coerce to int, murmur generates i64
   return result
 {.pop.}
 
-proc insert*(bf: var TBloomFilter, item: string) =
+proc insert*(bf: var BloomFilter, item: string) =
   ## Put the string there
   let hashes = hash(bf, item)
   for h in hashes:
     bf.bitarray[h] = true
 
-proc lookup*(bf: var TBloomFilter, item: string): bool =
+proc lookup*(bf: var BloomFilter, item: string): bool =
   ## Is the string there?
   let hashes = hash(bf, item)
   result = true

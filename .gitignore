@@ -1,2 +1,4 @@
 nimcache/*
 bitarray
+bloom_filter_demo
+bloom_filter_varying_bit_demo

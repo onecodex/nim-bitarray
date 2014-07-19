@@ -1,3 +1,16 @@
+# This is a demonstration script
+# for the bitarray and also requires
+# murmur3 >= 0.1.2. As that is
+# not a requirement of the main BitArray
+# type, it is not installed automatically
+# by Babel / on install of this module.
+#
+# Specifically, this implements a Bloom filter
+# where the bit flipped when inserting `x`
+# is not determined by `hash(x)`, but instead
+# by some deterministic function `f(hash(x))`.
+# This is solely to demo the `[]` and `[]=`
+# procs for BitArrays using a TSlice
 import bitarray
 import murmur3
 import strutils
@@ -7,16 +20,16 @@ import unsigned
 
 
 type
-  TBloomFilter = object
-    bitarray: TBitarray
+  BloomFilter = object
+    bitarray: BitArray
     n_hashes: int
     n_bits_per_item: int
     n_bits: int
 
-proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): TBloomFilter =
-  ## Generate a Bloom filter, yay so simple!
+proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): BloomFilter =
+  ## Generate a Bloom filter, same as bloom_filter_demo.nim
   let n_bits = n_elements * n_bits_per_item
-  result = TBloomFilter(
+  result = BloomFilter(
       bitarray: create_bitarray(n_bits),
       n_hashes: n_hashes,
       n_bits_per_item: n_bits_per_item,
@@ -24,28 +37,28 @@ proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: 
     )
 
 {.push overflowChecks: off.}
-proc hash(bf: TBloomFilter, item: string): seq[int] =
-  var hashes: TMurmurHashes = murmur_hash(item, 0)
+proc hash(bf: BloomFilter, item: string): seq[int] =
+  var hashes: MurmurHashes = murmur_hash(item, 0)
   newSeq(result, bf.n_hashes)
   for i in 0..(bf.n_hashes - 1):
-    result[i] = abs(hashes[0] + hashes[1] * i) mod (bf.n_bits - (sizeof(TBitScalar) * 8))
+    result[i] = int(abs(hashes[0] + hashes[1] * i) mod (bf.n_bits - (sizeof(BitArrayScalar) * 8)))
   return result
 {.pop.}
 
-proc insert*(bf: var TBloomFilter, item: string) =
+proc insert*(bf: var BloomFilter, item: string) =
   ## Put the string there
   let hashes = hash(bf, item)
-  let insert_pattern: TBitScalar = TBitScalar(1) shl TBitScalar(hashes[0] mod (8 * sizeof(TBitScalar)))
+  let insert_pattern: BitArrayScalar = BitArrayScalar(1) shl BitArrayScalar(hashes[0] mod (8 * sizeof(BitArrayScalar)))
   for h in hashes:
-    bf.bitarray[h..(h + sizeof(TBitScalar) * 8)] = insert_pattern
+    bf.bitarray[h..(h + sizeof(BitArrayScalar) * 8)] = insert_pattern
 
-proc lookup*(bf: var TBloomFilter, item: string): bool =
+proc lookup*(bf: var BloomFilter, item: string): bool =
   ## Is the string there?
   let hashes = hash(bf, item)
-  let pattern = TBitScalar(1) shl TBitScalar(hashes[0] mod (8 * sizeof(TBitScalar)))
-  var lookup: TBitScalar = pattern
+  let pattern = BitArrayScalar(1) shl BitArrayScalar(hashes[0] mod (8 * sizeof(BitArrayScalar)))
+  var lookup: BitArrayScalar = pattern
   for h in hashes:
-    lookup = lookup and bf.bitarray[h..(h + sizeof(TBitScalar) * 8)]
+    lookup = lookup and bf.bitarray[h..(h + sizeof(BitArrayScalar) * 8)]
   result = (lookup == pattern)
 
 

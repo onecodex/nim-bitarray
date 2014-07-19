@@ -8,34 +8,35 @@ from times import nil
 
 # Type declarations
 type
-  TBitScalar* = uint
+  BitArrayScalar* = uint
 
 type
-  EBitarray* = object of EBase
-  TBitarrayKind = enum inmem, mmap
-  TFlexArray {.unchecked.} = array[0..0, TBitScalar]
-  TBitarray* = ref object
+  BitArrayError* = object of EBase
+  BitArrayKind = enum inmem, mmap
+  FlexArray {.unchecked.} = array[0..0, BitArrayScalar]
+  BitArray* = ref object
     size_elements: int
     size_bits*: int
     size_specified*: int
-    bitarray*: ptr TFlexArray
+    bitarray*: ptr FlexArray
     read_only: bool
-    case kind: TBitarrayKind
+    case kind: BitArrayKind
     of inmem:
       nil
     of mmap:
       mm_filehandle: TMemFile
 
 
-const ONE = TBitScalar(1)
+const ONE = BitArrayScalar(1)
 
-# Note need to change 3rd create_bitarray method's
-# header setter (uses [0]) if changing this
+
+# Header -- this is useful for tracking/versioning
+# downstream data structures built on TBitArray
 const HEADER_SIZE = 1
-const DEFAULT_HEADER = TBitScalar(0xFFFFFFFFFFFFFFFF)  # 8 bytes
+const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFFFFFF)  # 8 bytes
 
 
-proc finalize_bitarray(a: TBitarray) =
+proc finalize_bitarray(a: BitArray) =
   if not a.bitarray.isNil:
     case a.kind
     of inmem:
@@ -45,7 +46,7 @@ proc finalize_bitarray(a: TBitarray) =
       a.mm_filehandle.close()
 
 
-proc close*(a: TBitarray) =
+proc close*(a: BitArray) =
   case a.kind
   of inmem:
     discard
@@ -53,21 +54,21 @@ proc close*(a: TBitarray) =
     a.mm_filehandle.close()
 
 
-proc create_bitarray*(size: int, header: TBitScalar = DEFAULT_HEADER): TBitarray =
+proc create_bitarray*(size: int, header: BitArrayScalar = DEFAULT_HEADER): BitArray =
   ## Creates an in-memory bitarray using a specified input size.
   ## Note that this will round up to the nearest byte.
-  let n_elements = size div (sizeof(TBitScalar) * 8)
-  let n_bits = n_elements * (sizeof(TBitScalar) * 8)
+  let n_elements = size div (sizeof(BitArrayScalar) * 8)
+  let n_bits = n_elements * (sizeof(BitArrayScalar) * 8)
   new(result, finalize_bitarray)
   result.kind = inmem
-  result.bitarray = cast[ptr TFlexArray](alloc0(n_elements * sizeof(TBitScalar)))
+  result.bitarray = cast[ptr FlexArray](alloc0(n_elements * sizeof(BitArrayScalar)))
   result.size_elements = n_elements
   result.size_bits = n_bits
   result.size_specified = size
   result.bitarray[0] = header
 
 
-proc create_bitarray*(file: string, size: int = -1, header: TBitScalar = DEFAULT_HEADER, read_only: bool = false): TBitarray =
+proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEFAULT_HEADER, read_only: bool = false): BitArray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -79,15 +80,15 @@ proc create_bitarray*(file: string, size: int = -1, header: TBitScalar = DEFAULT
   if os.existsFile(file):
     mm_file = open(file, mode = fmReadWrite, mappedSize = -1)
     if size != -1 and mm_file.size != n_elements:
-      raise newException(EBitarray, "Existing mmap file $# does not have the specified size $#. Size is $# instead." % [$file, $n_elements, $mm_file.size])
+      raise newException(BitArrayError, "Existing mmap file $# does not have the specified size $#. Size is $# instead." % [$file, $n_elements, $mm_file.size])
   else:
     if size == -1:
-      raise newException(EBitarray, "No existing mmap file. Must specify size to create one.")
+      raise newException(BitArrayError, "No existing mmap file. Must specify size to create one.")
     mm_file = open(file, mode = fmReadWrite, newFileSize = n_elements)
 
   new(result, finalize_bitarray)
   result.kind = mmap
-  result.bitarray = cast[ptr TFlexArray](mm_file.mem)
+  result.bitarray = cast[ptr FlexArray](mm_file.mem)
   result.size_elements = n_elements
   result.size_bits = mm_file.size * (sizeof(char) * 8)
   result.size_specified = size
@@ -96,48 +97,51 @@ proc create_bitarray*(file: string, size: int = -1, header: TBitScalar = DEFAULT
   result.bitarray[0] = header
 
 
-proc get_header*(ba: TBitarray): TBitScalar =
+proc get_header*(ba: BitArray): BitArrayScalar =
+  ## Gets the header of the BitArray object.
+  ## This is defined to be a 1-length BitArrayScalar
+  ## (uint by default).
   result = ba.bitarray[0]
 
 
-proc `[]=`*(ba: var TBitarray, index: int, val: bool) {.inline.} =
+proc `[]=`*(ba: var BitArray, index: int, val: bool) {.inline.} =
   ## Sets the bit at an index to be either 0 (false) or 1 (true)
   when not defined(release):
     if index >= ba.size_bits or index < 0:
-      raise newException(EBitarray, "Specified index is too large.")
+      raise newException(BitArrayError, "Specified index is too large.")
   if ba.read_only:
-    raise newException(EBitarray, "Cannot write to a read-only array.")
-  let i_element = HEADER_SIZE + index div (sizeof(TBitScalar) * 8)
-  let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
+    raise newException(BitArrayError, "Cannot write to a read-only array.")
+  let i_element = HEADER_SIZE + index div (sizeof(BitArrayScalar) * 8)
+  let i_offset = BitArrayScalar(index mod (sizeof(BitArrayScalar) * 8))
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
     ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
 
 
-proc `[]`*(ba: var TBitarray, index: int): bool {.inline.} =
+proc `[]`*(ba: var BitArray, index: int): bool {.inline.} =
   ## Gets the bit at an index element (returns a bool)
   when not defined(release):
     if index >= ba.size_bits or index < 0:
-      raise newException(EBitarray, "Specified index is too large.")
-  let i_element = HEADER_SIZE + index div (sizeof(TBitScalar) * 8)
-  let i_offset = TBitScalar(index mod (sizeof(TBitScalar) * 8))
+      raise newException(BitArrayError, "Specified index is too large.")
+  let i_element = HEADER_SIZE + index div (sizeof(BitArrayScalar) * 8)
+  let i_offset = BitArrayScalar(index mod (sizeof(BitArrayScalar) * 8))
   result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
 
-proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
+proc `[]`*(ba: var BitArray, index: TSlice): BitArrayScalar {.inline.} =
   ## Get the bits for a slice of the bitarray. Supports slice sizes
   ## up the maximum element size (64 bits by default)
   when not defined(release):
     if index.b >= ba.size_bits or index.a < 0:
-      raise newException(EBitarray, "Specified index is too large.")
-    if (index.b - index.a) > (sizeof(TBitScalar) * 8):
-      raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+      raise newException(BitArrayError, "Specified index is too large.")
+    if (index.b - index.a) > (sizeof(BitArrayScalar) * 8):
+      raise newException(BitArrayError, "Only slices up to $1 bits are supported." % $(sizeof(BitArrayScalar) * 8))
 
-  let i_element_a = HEADER_SIZE + index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
-  let i_element_b = HEADER_SIZE + index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
+  let i_element_a = HEADER_SIZE + index.a div (sizeof(BitArrayScalar) * 8)
+  let i_offset_a = BitArrayScalar(index.a mod (sizeof(BitArrayScalar) * 8))
+  let i_element_b = HEADER_SIZE + index.b div (sizeof(BitArrayScalar) * 8)
+  let i_offset_b = BitArrayScalar(sizeof(BitArrayScalar) * 8) - i_offset_a
   var result = ba.bitarray[i_element_a] shr i_offset_a
   if i_element_a != i_element_b:  # Combine two slices
     let slice_b = ba.bitarray[i_element_b] shl i_offset_b
@@ -145,25 +149,25 @@ proc `[]`*(ba: var TBitarray, index: TSlice): TBitScalar {.inline.} =
   return result  # Fails if this isn't included?
 
 
-proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
+proc `[]=`*(ba: var BitArray, index: TSlice, val: BitArrayScalar) {.inline.} =
   ## Set the bits for a slice of the bitarray. Supports slice sizes
   ## up to the maximum element size (64 bits by default)
   ## Note: This inserts using a bitwise-or, it will *not* overwrite previously
   ## set true values!
   when not defined(release):
     if index.b >= ba.size_bits or index.a < 0:
-      raise newException(EBitarray, "Specified index is too large.")
-    if (index.b - index.a) > (sizeof(TBitScalar) * 8):
-      raise newException(EBitarray, "Only slices up to $1 bits are supported." % $(sizeof(TBitScalar) * 8))
+      raise newException(BitArrayError, "Specified index is too large.")
+    if (index.b - index.a) > (sizeof(BitArrayScalar) * 8):
+      raise newException(BitArrayError, "Only slices up to $1 bits are supported." % $(sizeof(BitArrayScalar) * 8))
 
   if ba.read_only:
-    raise newException(EBitarray, "Cannot write to a read-only array.")
+    raise newException(BitArrayError, "Cannot write to a read-only array.")
 
   # TODO(nbg): Make a macro for handling this and also the if/else in-memory piece
-  let i_element_a = HEADER_SIZE + index.a div (sizeof(TBitScalar) * 8)
-  let i_offset_a = TBitScalar(index.a mod (sizeof(TBitScalar) * 8))
-  let i_element_b = HEADER_SIZE + index.b div (sizeof(TBitScalar) * 8)
-  let i_offset_b = TBitScalar(sizeof(TBitScalar) * 8) - i_offset_a
+  let i_element_a = HEADER_SIZE + index.a div (sizeof(BitArrayScalar) * 8)
+  let i_offset_a = BitArrayScalar(index.a mod (sizeof(BitArrayScalar) * 8))
+  let i_element_b = HEADER_SIZE + index.b div (sizeof(BitArrayScalar) * 8)
+  let i_offset_b = BitArrayScalar(sizeof(BitArrayScalar) * 8) - i_offset_a
 
   let insert_a = val shl i_offset_a
   ba.bitarray[i_element_a] = ba.bitarray[i_element_a] or insert_a
@@ -172,9 +176,9 @@ proc `[]=`*(ba: var TBitarray, index: TSlice, val: TBitScalar) {.inline.} =
     ba.bitarray[i_element_b] = ba.bitarray[i_element_b] or insert_b
 
 
-proc `$`*(ba: TBitarray): string =
+proc `$`*(ba: BitArray): string =
   ## Print the number of bits and elements in the bitarray (elements are currently defined as 8-bit chars)
-  result = ("Bitarray with $1 bits and $2 unique elements. In-memory?: $3." %
+  result = ("BitArray with $1 bits and $2 unique elements. In-memory?: $3." %
             [$ba.size_bits, $ba.size_elements, $ba.kind])
 
 
@@ -183,27 +187,27 @@ when isMainModule:
   let n_tests: int = int(1e6)
   let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
 
-  var bitarray = create_bitarray(n_bits)
-  bitarray[0] = true
-  bitarray[1] = true
-  bitarray[2] = true
+  var bitarray_a = create_bitarray(n_bits)
+  bitarray_a[0] = true
+  bitarray_a[1] = true
+  bitarray_a[2] = true
 
   var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
   bitarray_b.bitarray[3] = 4
 
   # # Test range lookups/inserts
-  bitarray[65] = true
-  doAssert bitarray[65]
-  doAssert bitarray[2..66] == TBitScalar(-9223372036854775807)  # Lexer error prevents using 9223372036854775809'u64 directly... ugh
+  bitarray_a[65] = true
+  doAssert bitarray_a[65]
+  doAssert bitarray_a[2..66] == BitArrayScalar(-9223372036854775807)  # Lexer error prevents using 9223372036854775809'u64 directly... ugh
 
-  bitarray[131] = true
-  bitarray[194] = true
-  assert bitarray[2..66] == bitarray[131..194]
-  let slice_value = bitarray[131..194]
-  bitarray[270..333] = slice_value
-  bitarray[400..463] = TBitScalar(-9223372036854775807)
-  assert bitarray[131..194] == bitarray[270..333]
-  assert bitarray[131..194] == bitarray[400..463]
+  bitarray_a[131] = true
+  bitarray_a[194] = true
+  assert bitarray_a[2..66] == bitarray_a[131..194]
+  let slice_value = bitarray_a[131..194]
+  bitarray_a[270..333] = slice_value
+  bitarray_a[400..463] = BitArrayScalar(-9223372036854775807)
+  assert bitarray_a[131..194] == bitarray_a[270..333]
+  assert bitarray_a[131..194] == bitarray_a[400..463]
 
   # Seed RNG
   randomize(2882)  # Seed the RNG
@@ -216,7 +220,7 @@ when isMainModule:
   var start_time, end_time: float
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    bitarray[n_test_positions[i]] = true
+    bitarray_a[n_test_positions[i]] = true
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (in-memory).")
 
@@ -229,13 +233,13 @@ when isMainModule:
   var bit_value: bool
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    doAssert bitarray[n_test_positions[i]]
+    doAssert bitarray_a[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (in-memory).")
 
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
-    doAssert bitarray[n_test_positions[i]]
+    doAssert bitarray_a[n_test_positions[i]]
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to lookup ", n_tests, " items (mmap-backed).")
 
@@ -246,13 +250,13 @@ when isMainModule:
   try:
     bitarray_c[0] = true
     doAssert false
-  except EBitarray:
+  except BitArrayError:
     doAssert true
   doAssert bitarray_c[0] == false
 
   # Header testing; first assert get_header is default
-  doAssert bitarray.get_header() == DEFAULT_HEADER
-  let new_header = TBitScalar(0xFFFFFFFFFFFFFEEE)
+  doAssert bitarray_a.get_header() == DEFAULT_HEADER
+  let new_header = BitArrayScalar(0xFFFFFFFFFFFFFEEE)
   var bitarray_d = create_bitarray(100000, header = new_header)
   doAssert bitarray_d.get_header() == new_header
 
