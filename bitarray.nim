@@ -77,14 +77,19 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   if size mod (sizeof(char) * 8) != 0:
     n_elements += 1
   var mm_file: TMemFile
+  var new_file = false
   if os.existsFile(file):
-    mm_file = open(file, mode = fmReadWrite, mappedSize = -1)
+    if read_only:
+      mm_file = open(file, mode = fmRead, mappedSize = -1)
+    else:
+      mm_file = open(file, mode = fmReadWrite, mappedSize = -1)
     if size != -1 and mm_file.size != n_elements:
       raise newException(BitArrayError, "Existing mmap file $# does not have the specified size $#. Size is $# instead." % [$file, $n_elements, $mm_file.size])
   else:
     if size == -1:
       raise newException(BitArrayError, "No existing mmap file. Must specify size to create one.")
     mm_file = open(file, mode = fmReadWrite, newFileSize = n_elements)
+    new_file = true
 
   new(result, finalize_bitarray)
   result.kind = mmap
@@ -94,7 +99,8 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   result.size_specified = size
   result.mm_filehandle = mm_file
   result.read_only = read_only
-  result.bitarray[0] = header
+  if new_file:  # Only alter header on creation
+    result.bitarray[0] = header
 
 
 proc get_header*(ba: BitArray): BitArrayScalar =
