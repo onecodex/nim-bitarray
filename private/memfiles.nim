@@ -21,6 +21,16 @@ else:
 
 import os
 
+
+when defined(linux):
+  var
+    MAP_POPULATE* {.importc, header: "<sys/mman.h>".}: cint
+      ## Populate (prefault) page tables for a mapping.
+else:
+  var
+    MAP_POPULATE*: cint = 0
+
+
 type
   TMemFile* = object {.pure.} ## represents a memory mapped file
     mem*: pointer    ## a pointer to the memory mapped file. The pointer
