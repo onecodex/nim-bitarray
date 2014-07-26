@@ -57,6 +57,10 @@ proc close*(a: BitArray) =
 proc create_bitarray*(size: int, header: BitArrayScalar = DEFAULT_HEADER): BitArray =
   ## Creates an in-memory bitarray using a specified input size.
   ## Note that this will round up to the nearest byte.
+  if size < (sizeof(BitArrayScalar) * 8):
+    raise newException(BitArrayError,
+                       "Minimum size of a bitarray is $#" %
+                       [$(sizeof(BitArrayScalar) * 8)])
   let n_elements = size div (sizeof(BitArrayScalar) * 8)
   let n_bits = n_elements * (sizeof(BitArrayScalar) * 8)
   new(result, finalize_bitarray)
@@ -73,6 +77,10 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
   ## it will be created.
+  if size >= 0 and size < (sizeof(BitArrayScalar) * 8):
+    raise newException(BitArrayError,
+                       "Minimum size of a bitarray is $#" %
+                       [$(sizeof(BitArrayScalar) * 8)])
   var n_elements = size div (sizeof(char) * 8)
   if size mod (sizeof(char) * 8) != 0:
     n_elements += 1
@@ -236,7 +244,6 @@ when isMainModule:
   end_time = times.cpuTime()
   echo("Took ", formatFloat(end_time - start_time, format = ffDecimal, precision = 4), " seconds to insert ", n_tests, " items (mmap-backed).")
 
-  var bit_value: bool
   start_time = times.cpuTime()
   for i in 0..(n_tests - 1):
     doAssert bitarray_a[n_test_positions[i]]
@@ -265,5 +272,15 @@ when isMainModule:
   let new_header = BitArrayScalar(0xFFFFFFFFFFFFFEEE)
   var bitarray_d = create_bitarray(100000, header = new_header)
   doAssert bitarray_d.get_header() == new_header
+
+  # Test that bit arrays < sizeof(BitArrayScalar) fail
+  try:
+    var m = createBitArray(8)
+    discard m
+    doAssert false
+  except BitArrayError:
+    doAssert true
+  var bitarray_64 = createBitArray(64)
+  doAssert bitarray_64.size_bits == 64
 
   echo("All tests successfully completed.")
