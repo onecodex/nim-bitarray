@@ -198,8 +198,12 @@ proc `$`*(ba: BitArray): string =
 
 when isMainModule:
   echo("Testing bitarray.nim code.")
-  let n_tests: int = int(1e6)
-  let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
+  when not defined(release):
+    let n_tests: int = int(1e6)
+    let n_bits: int = int(2e9)  # ~240MB, i.e., much larger than L3 cache
+  else:
+    let n_tests = int(1e8)
+    let n_bits = int(2e9)
 
   var bitarray_a = create_bitarray(n_bits)
   bitarray_a[0] = true
