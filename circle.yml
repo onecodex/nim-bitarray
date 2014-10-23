@@ -5,16 +5,16 @@ dependencies:
     - ~/.babel
 
   pre:
-    - if [[ ! -e Nimrod/bin/nimrod ]]; then git clone -b devel git://github.com/Araq/Nimrod.git && cd Nimrod && git checkout v0.9.6 && git clone --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
-    - ln -s `readlink -f Nimrod/bin/nimrod` /home/ubuntu/bin/nimrod
-    - if [[ ! -e ~/.babel/bin/babel ]]; then if [[ ! -e nimble ]]; then git clone https://github.com/nimrod-code/nimble.git; fi; cd nimble && git checkout v0.4 && nimrod c -r src/babel install -y; fi
-    - ln -s `readlink -f ~/.babel/bin/babel` /home/ubuntu/bin/babel
-    - babel update
-    - babel install -y
+    - if [[ ! -e Nimrod/bin/nim ]]; then git clone -b bigbreak git://github.com/Araq/Nimrod.git && cd Nimrod && git clone -b bigbreak --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
+    - ln -s `readlink -f Nimrod/bin/nim` /home/ubuntu/bin/nim
+    - if [[ ! -e ~/.babel/bin/babel ]]; then if [[ ! -e nimble ]]; then git clone https://github.com/nimrod-code/nimble.git; fi; cd nimble && nim c -r src/nimble install -y; fi
+    - ln -s `readlink -f ~/.nimble/bin/nimble` /home/ubuntu/bin/nimble
+    - nimble update
+    - nimble install -y
 
 test:
   pre:
-    - nimrod c bitarray.nim
+    - nim c bitarray.nim
 
   override:
     - ./bitarray
