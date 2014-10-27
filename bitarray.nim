@@ -65,7 +65,7 @@ proc create_bitarray*(size: int, header: BitArrayScalar = DEFAULT_HEADER): BitAr
   let n_bits = n_elements * (sizeof(BitArrayScalar) * 8)
   new(result, finalize_bitarray)
   result.kind = inmem
-  result.bitarray = cast[ptr FlexArray](alloc0(n_elements * sizeof(BitArrayScalar)))
+  result.bitarray = cast[ptr FlexArray](alloc0((n_elements + 1) * sizeof(BitArrayScalar)))
   result.size_elements = n_elements
   result.size_bits = n_bits
   result.size_specified = size
@@ -82,6 +82,7 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
                        "Minimum size of a bitarray is $#" %
                        [$(sizeof(BitArrayScalar) * 8)])
   var n_elements = size div (sizeof(char) * 8)
+  n_elements = n_elements + sizeof(BitArrayScalar)  # For header
   if size mod (sizeof(char) * 8) != 0:
     n_elements += 1
   var mm_file: TMemFile
@@ -103,7 +104,7 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   result.kind = mmap
   result.bitarray = cast[ptr FlexArray](mm_file.mem)
   result.size_elements = n_elements
-  result.size_bits = mm_file.size * (sizeof(char) * 8)
+  result.size_bits = mm_file.size * (sizeof(char) * 8) - (sizeof(BitArrayScalar) * 8 * HEADER_SIZE)  # Don't use header in calculation, offset below
   result.size_specified = size
   result.mm_filehandle = mm_file
   result.read_only = read_only
