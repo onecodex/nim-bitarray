@@ -6,4 +6,4 @@ description   = "Efficient in-memory or mmap-backed bitarray implementation in N
 license       = "MIT"
 
 [Deps]
-Requires: "nimrod >= 0.9.4"
+Requires: "nimrod >= 0.9.6"
