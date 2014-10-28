@@ -33,7 +33,7 @@ const ONE = BitArrayScalar(1)
 # Header -- this is useful for tracking/versioning
 # downstream data structures built on TBitArray
 const HEADER_SIZE = 1
-const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFFFFFF)  # 8 bytes
+const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFF0022)  # 8 bytes
 
 
 proc finalize_bitarray(a: BitArray) =
@@ -52,6 +52,13 @@ proc close*(a: BitArray) =
     discard
   of mmap:
     a.mm_filehandle.close()
+
+
+proc get_header*(ba: BitArray): BitArrayScalar =
+  ## Gets the header of the BitArray object.
+  ## This is defined to be a 1-length BitArrayScalar
+  ## (uint by default).
+  result = ba.bitarray[0]
 
 
 proc create_bitarray*(size: int, header: BitArrayScalar = DEFAULT_HEADER): BitArray =
@@ -110,13 +117,10 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   result.read_only = read_only
   if new_file:  # Only alter header on creation
     result.bitarray[0] = header
-
-
-proc get_header*(ba: BitArray): BitArrayScalar =
-  ## Gets the header of the BitArray object.
-  ## This is defined to be a 1-length BitArrayScalar
-  ## (uint by default).
-  result = ba.bitarray[0]
+  else:  # enforce header
+    let old_header = get_header(result)
+    if old_header != header:
+      raise newException(BitArrayError, "Headers do not match. Possible version mismatch on underlying bitarray.")
 
 
 proc `[]=`*(ba: var BitArray, index: int, val: bool) {.inline.} =
@@ -277,6 +281,13 @@ when isMainModule:
   let new_header = BitArrayScalar(0xFFFFFFFFFFFFFEEE)
   var bitarray_d = create_bitarray(100000, header = new_header)
   doAssert bitarray_d.get_header() == new_header
+
+  # Test that header enforcement works
+  try:
+    discard create_bitarray("/tmp/ba.mmap", header=BitArrayScalar(0))
+    doAssert false
+  except BitArrayError:
+    doAssert true
 
   # Test that bit arrays < sizeof(BitArrayScalar) fail
   try:
