@@ -5,7 +5,7 @@ dependencies:
     - ~/.nimble
 
   pre:
-    - if [[ ! -e Nimrod/bin/nim ]]; then git clone -b bigbreak git://github.com/Araq/Nimrod.git && cd Nimrod && git clone -b bigbreak --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nimrod c koch && ./koch boot -d:release; fi
+    - if [[ ! -e Nimrod/bin/nim ]]; then git clone -b devel git://github.com/Araq/Nimrod.git && cd Nimrod && git clone -b devel --depth 1 git://github.com/nimrod-code/csources && cd csources && sh build.sh && cd ../ && ./bin/nim c koch && ./koch boot -d:release; fi
     - ln -s `readlink -f Nimrod/bin/nim` /home/ubuntu/bin/nim
     - if [[ ! -e ~/.nimble/bin/nimble ]]; then if [[ ! -e nimble ]]; then git clone https://github.com/nimrod-code/nimble.git; fi; cd nimble && nim c -r src/nimble install -y; fi
     - ln -s `readlink -f ~/.nimble/bin/nimble` /home/ubuntu/bin/nimble
