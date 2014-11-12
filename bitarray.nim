@@ -11,7 +11,7 @@ type
   BitArrayScalar* = uint
 
 type
-  BitArrayError* = object of EBase
+  BitArrayError* = object of Exception
   BitArrayKind = enum inmem, mmap
   FlexArray {.unchecked.} = array[0..0, BitArrayScalar]
   BitArray* = ref object
@@ -24,7 +24,7 @@ type
     of inmem:
       nil
     of mmap:
-      mm_filehandle: TMemFile
+      mm_filehandle: MemFile
 
 
 const ONE = BitArrayScalar(1)
@@ -33,7 +33,7 @@ const ONE = BitArrayScalar(1)
 # Header -- this is useful for tracking/versioning
 # downstream data structures built on TBitArray
 const HEADER_SIZE = 1
-const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFF0022)  # 8 bytes
+const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFF0023)  # 8 bytes
 
 
 proc finalize_bitarray(a: BitArray) =
@@ -92,7 +92,7 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
   n_elements = n_elements + sizeof(BitArrayScalar)  # For header
   if size mod (sizeof(char) * 8) != 0:
     n_elements += 1
-  var mm_file: TMemFile
+  var mm_file: MemFile
   var new_file = false
   if os.existsFile(file):
     if read_only:
@@ -148,7 +148,7 @@ proc `[]`*(ba: var BitArray, index: int): bool {.inline.} =
   result = bool((ba.bitarray[i_element] shr i_offset) and ONE)
 
 
-proc `[]`*(ba: var BitArray, index: TSlice): BitArrayScalar {.inline.} =
+proc `[]`*(ba: var BitArray, index: Slice): BitArrayScalar {.inline.} =
   ## Get the bits for a slice of the bitarray. Supports slice sizes
   ## up the maximum element size (64 bits by default)
   when not defined(release):
@@ -168,7 +168,7 @@ proc `[]`*(ba: var BitArray, index: TSlice): BitArrayScalar {.inline.} =
   return result  # Fails if this isn't included?
 
 
-proc `[]=`*(ba: var BitArray, index: TSlice, val: BitArrayScalar) {.inline.} =
+proc `[]=`*(ba: var BitArray, index: Slice, val: BitArrayScalar) {.inline.} =
   ## Set the bits for a slice of the bitarray. Supports slice sizes
   ## up to the maximum element size (64 bits by default)
   ## Note: This inserts using a bitwise-or, it will *not* overwrite previously
