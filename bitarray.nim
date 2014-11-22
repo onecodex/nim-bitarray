@@ -79,7 +79,8 @@ proc create_bitarray*(size: int, header: BitArrayScalar = DEFAULT_HEADER): BitAr
   result.bitarray[0] = header
 
 
-proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEFAULT_HEADER, read_only: bool = false): BitArray =
+proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEFAULT_HEADER,
+                      read_only: bool = false, enforce_header: bool = true): BitArray =
   ## Creates an mmap-backed bitarray. If the specified file exists
   ## it will be opened, but an exception will be raised if the size
   ## is specified and does not match. If the file does not exist
@@ -119,7 +120,7 @@ proc create_bitarray*(file: string, size: int = -1, header: BitArrayScalar = DEF
     result.bitarray[0] = header
   else:  # enforce header
     let old_header = get_header(result)
-    if old_header != header:
+    if enforce_header and old_header != header:
       raise newException(BitArrayError, "Headers do not match. Possible version mismatch on underlying bitarray.")
 
 
