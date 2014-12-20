@@ -33,7 +33,7 @@ const ONE = BitArrayScalar(1)
 # Header -- this is useful for tracking/versioning
 # downstream data structures built on TBitArray
 const HEADER_SIZE = 1
-const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFF0023)  # 8 bytes
+const DEFAULT_HEADER = BitArrayScalar(0xFFFFFFFFFFFF0025)  # 8 bytes
 
 
 proc finalize_bitarray(a: BitArray) =

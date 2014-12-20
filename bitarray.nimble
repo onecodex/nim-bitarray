@@ -1,6 +1,6 @@
 [Package]
 name          = "bitarray"
-version       = "0.2.4"
+version       = "0.2.5"
 author        = "Nick Boyd Greenfield"
 description   = "Efficient in-memory or mmap-backed bitarray implementation in Nim"
 license       = "MIT"
