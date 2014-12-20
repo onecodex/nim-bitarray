@@ -136,7 +136,7 @@ proc `[]=`*(ba: var BitArray, index: int, val: bool) {.inline.} =
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
-    ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
+    ba.bitarray[i_element] = (ba.bitarray[i_element] and (not (ONE shl i_offset)))
 
 
 proc `[]`*(ba: var BitArray, index: int): bool {.inline.} =
