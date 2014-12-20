@@ -136,7 +136,7 @@ proc `[]=`*(ba: var BitArray, index: int, val: bool) {.inline.} =
   if val:
     ba.bitarray[i_element] = (ba.bitarray[i_element] or (ONE shl i_offset))
   else:
-    ba.bitarray[i_element] = (ba.bitarray[i_element] and ((not ONE) shl i_offset))
+    ba.bitarray[i_element] = (ba.bitarray[i_element] and (not (ONE shl i_offset)))
 
 
 proc `[]`*(ba: var BitArray, index: int): bool {.inline.} =
@@ -219,7 +219,7 @@ when isMainModule:
   var bitarray_b = create_bitarray("/tmp/ba.mmap", size=n_bits)
   bitarray_b.bitarray[3] = 4
 
-  # # Test range lookups/inserts
+  # Test range lookups/inserts
   bitarray_a[65] = true
   doAssert bitarray_a[65]
   doAssert bitarray_a[2..66] == BitArrayScalar(-9223372036854775807)  # Lexer error prevents using 9223372036854775809'u64 directly... ugh
@@ -299,5 +299,11 @@ when isMainModule:
     doAssert true
   var bitarray_64 = createBitArray(64)
   doAssert bitarray_64.size_bits == 64
+
+  # Test clearing bits
+  var bitarray_e = createBitArray(64)
+  bitarray_e[1] = true
+  bitarray_e[2] = false
+  doAssert bitarray_e[1] == true
 
   echo("All tests successfully completed.")
