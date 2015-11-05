@@ -1,7 +1,6 @@
 import memfiles
 from os import nil
 from strutils import `%`, formatFloat, ffDecimal, toBin
-import unsigned
 from math import random, randomize
 from times import nil
 

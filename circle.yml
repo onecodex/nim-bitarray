@@ -5,7 +5,7 @@ dependencies:
     - ~/.nimble
 
   pre:
-    - if [[ ! -e Nim/bin/nim ]]; then git clone -b master git://github.com/Araq/Nim.git && cd Nim && git clone -b master --depth 1 git://github.com/nim-lang/csources && cd csources && sh build.sh && cd ../ && ./bin/nim c koch && ./koch boot -d:release; fi
+    - if [[ ! -e Nim/bin/nim ]]; then git clone -b master git://github.com/nim-lang/Nim.git && cd Nim && git clone -b master --depth 1 git://github.com/nim-lang/csources && cd csources && sh build.sh && cd ../ && ./bin/nim c koch && ./koch boot -d:release; fi
     - ln -s `readlink -f Nim/bin/nim` /home/ubuntu/bin/nim
     - if [[ ! -e ~/.nimble/bin/nimble ]]; then if [[ ! -e nimble ]]; then git clone https://github.com/nim-lang/nimble.git; fi; cd nimble && nim c -r src/nimble install -y; fi
     - ln -s `readlink -f ~/.nimble/bin/nimble` /home/ubuntu/bin/nimble
