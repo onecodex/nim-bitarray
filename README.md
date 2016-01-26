@@ -1,7 +1,7 @@
 nim-bitarray
 ============
 
-[![Circle CI](https://circleci.com/gh/refgenomics/nim-bitarray.svg?style=svg&circle-token=fe4c2508901f659e0f1a5a9a8ed418bf13290c6b)](https://circleci.com/gh/refgenomics/nim-bitarray)
+[![Circle CI](https://circleci.com/gh/onecodex/nim-bitarray.svg?style=svg&circle-token=fe4c2508901f659e0f1a5a9a8ed418bf13290c6b)](https://circleci.com/gh/onecodex/nim-bitarray)
 
 Bitarray implementation in Nim
 
