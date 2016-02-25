@@ -161,12 +161,12 @@ proc `[]`*(ba: var BitArray, index: Slice): BitArrayScalar {.inline.} =
   let i_offset_a = BitArrayScalar(index.a mod (sizeof(BitArrayScalar) * 8))
   let i_element_b = HEADER_SIZE + index.b div (sizeof(BitArrayScalar) * 8)
   let i_offset_b = BitArrayScalar(sizeof(BitArrayScalar) * 8) - i_offset_a
-  let inner_offset_b = index.b mod (sizeof(BitArrayScalar) * 8)
   result = ba.bitarray[i_element_a] shr i_offset_a
   if i_element_a != i_element_b:  # Combine two slices
     let slice_b = ba.bitarray[i_element_b] shl i_offset_b
     result = result or slice_b
-  elif index.a != index.b and index.b < sizeof(BitArrayScalar)*8-1:                                               │                                                       
+  elif index.a != index.b and index.b < sizeof(BitArrayScalar) * 8 - 1:
+    let inner_offset_b = index.b mod (sizeof(BitArrayScalar) * 8)
     result = BitArrayScalar(((1 shl inner_offset_b)-1) or (1 shl inner_offset_b)) and result
   return result  # Fails if this isn't included?
 
@@ -212,7 +212,7 @@ when isMainModule:
   else:
     let n_tests = int(1e8)
     let n_bits = int(2e9)
-  
+
   block: # test specific slicing
     var ba = create_bitarray(64)
     ba[0] = true
