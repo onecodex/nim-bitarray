@@ -14,7 +14,7 @@ dependencies:
 
 test:
   pre:
-    - nim c bitarray.nim
+    - nim c bitarray/bitarray.nim
 
   override:
-    - ./bitarray
+    - ./bitarray/bitarray

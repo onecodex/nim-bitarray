@@ -4,11 +4,19 @@
 # not a requirement of the main BitArray
 # type, it is not installed automatically
 # by Babel / on install of this module.
+#
+# Specifically, this implements a Bloom filter
+# where the bit flipped when inserting `x`
+# is not determined by `hash(x)`, but instead
+# by some deterministic function `f(hash(x))`.
+# This is solely to demo the `[]` and `[]=`
+# procs for BitArrays using a TSlice
 import bitarray
 import murmur3
 import strutils
 import times
-from math import random, randomize
+from random import random, randomize
+
 
 type
   BloomFilter = object
@@ -18,7 +26,7 @@ type
     n_bits: int
 
 proc create_bloom_filter*(n_elements: int, n_bits_per_item: int = 12, n_hashes: int = 6): BloomFilter =
-  ## Generate a Bloom filter, nice and simple!
+  ## Generate a Bloom filter, same as bloom_filter_demo.nim
   let n_bits = n_elements * n_bits_per_item
   result = BloomFilter(
       bitarray: create_bitarray(n_bits),
@@ -32,29 +40,31 @@ proc hash(bf: BloomFilter, item: string): seq[int] =
   var hashes: MurmurHashes = murmur_hash(item, 0)
   newSeq(result, bf.n_hashes)
   for i in 0..(bf.n_hashes - 1):
-    result[i] = int(abs(hashes[0] + hashes[1] * i) mod bf.n_bits)  # Coerce to int, murmur generates i64
+    result[i] = int(abs(hashes[0] + hashes[1] * i) mod (bf.n_bits - (sizeof(BitArrayScalar) * 8)))
   return result
 {.pop.}
 
 proc insert*(bf: var BloomFilter, item: string) =
   ## Put the string there
   let hashes = hash(bf, item)
+  let insert_pattern: BitArrayScalar = BitArrayScalar(1) shl BitArrayScalar(hashes[0] mod (8 * sizeof(BitArrayScalar)))
   for h in hashes:
-    bf.bitarray[h] = true
+    bf.bitarray[h..(h + sizeof(BitArrayScalar) * 8)] = insert_pattern
 
 proc lookup*(bf: var BloomFilter, item: string): bool =
   ## Is the string there?
   let hashes = hash(bf, item)
-  result = true
+  let pattern = BitArrayScalar(1) shl BitArrayScalar(hashes[0] mod (8 * sizeof(BitArrayScalar)))
+  var lookup: BitArrayScalar = pattern
   for h in hashes:
-    result = result and bf.bitarray[h]
-  return result
+    lookup = lookup and bf.bitarray[h..(h + sizeof(BitArrayScalar) * 8)]
+  result = (lookup == pattern)
 
 
 when isMainModule:
   echo "Quick working Bloom filter example."
   let n_tests = int(2e7)
-  var bf = create_bloom_filter(n_elements = n_tests, n_bits_per_item = 12, n_hashes = 7)
+  var bf = create_bloom_filter(n_elements = n_tests, n_bits_per_item = 16, n_hashes = 7)
   bf.insert("Here we go!")
   assert bf.lookup("Here we go!")
   assert (not bf.lookup("I'm not here."))

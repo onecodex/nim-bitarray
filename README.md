@@ -5,4 +5,4 @@ nim-bitarray
 
 Bitarray implementation in Nim
 
-An efficient bitarray implementation in Nim. Includes a demo Bloom filter in ~75 lines that also requires [murmur3](https://github.com/boydgreenfield/murmur3) >= v0.1.2.
+An efficient bitarray implementation in Nim. Includes a demo Bloom filter in ~75 lines that also requires [murmur3](https://github.com/boydgreenfield/murmur3) >= v0.2.0.
